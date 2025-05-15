@@ -67,7 +67,7 @@ def main():
                 if nmid in cluster_df.index:
                     item_info = cluster_df.loc[nmid]
                     title = item_info.get('title', 'Нет названия')
-                    subject = item_info.get('subject', 'Нет категории')
+                    subject = item_info.get('subjectname', 'Нет категории')
                 else:
                     title = "Нет данных"
                     subject = "Нет данных"
