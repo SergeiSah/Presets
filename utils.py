@@ -50,7 +50,7 @@ def create_basket_path(item_id: int,
     raise ValueError('Unexpected nm.')
 
 
-def get_images(nmids: list) -> dict:
+def get_images(nmids: list, basket_json: dict = None) -> dict:
     """
     Загружает изображения по списку nmids.
     :param nmids: список артикулов.
@@ -58,7 +58,9 @@ def get_images(nmids: list) -> dict:
     """
     images = {}
 
-    basket_json = get_baskets_json()
+    if basket_json is None:
+        basket_json = get_baskets_json()
+
     nmid_paths = {nm: create_basket_path(nm, basket_json=basket_json) for nm in nmids}
 
     for nmid, path in nmid_paths.items():

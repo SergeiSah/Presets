@@ -1,31 +1,29 @@
 import io
-import zipfile
 import requests
 import pandas as pd
 import streamlit as st
-from pathlib import Path
 from PIL import Image
 
-from utils import get_images
+from utils import get_images, get_baskets_json
 
 
 # === НАСТРОЙКИ ===
-ZIP_URL = "https://github.com/SergeiSah/Presets/releases/download/0.0.1/images.zip"
-DATA_DIR = Path("data")
-DESCRIPTION_FILE = "description.pq"
-CLUSTERS_INFO_FILE = "clusters_info.pq"
+DESCRIPTION_URL = "https://github.com/SergeiSah/Presets/releases/download/v0.0.2/description.pq"
+CLUSTERS_INFO_URL = "https://github.com/SergeiSah/Presets/releases/download/v0.0.2/clusters_info.pq"
 COLUMNS = 5
 IMAGE_HEIGHT = 250
-cluster_names = {
-    1: "Cluster 1",
-    2: "Cluster 2",
-}
 
 
 # === ЗАГРУЗКА МЕТАДАННЫХ ===
 @st.cache_data
-def load_data(file):
-    return pd.read_parquet(DATA_DIR / file)
+def load_data(file_url):
+    file = io.BytesIO(requests.get(file_url).content)
+    return pd.read_parquet(file)
+
+
+@st.cache_data
+def load_basket_json(url: str = 'http://basket-10c.dp.wb.ru:8080/shardes_v3'):
+    return get_baskets_json(url)
 
 
 # === ОСНОВНОЙ КОД ===
@@ -33,8 +31,9 @@ def main():
     st.set_page_config(layout="wide")
     st.title("Просмотр изображений по кластерам")
 
-    desc = load_data(DESCRIPTION_FILE)
-    clusters_info = load_data(CLUSTERS_INFO_FILE)
+    desc = load_data(DESCRIPTION_URL)
+    clusters_info = load_data(CLUSTERS_INFO_URL)
+    basket_json = load_basket_json()
 
     clusters = clusters_info.set_index('cluster_name')['cluster_id'].to_dict()
 
@@ -44,18 +43,17 @@ def main():
     cluster_df = desc.query('cluster_id == @cluster_id')
     nmids = cluster_df.index.tolist()
 
-    # Получаем имена файлов изображений в выбранной папке
-    cluster_images = get_images(nmids)
-
-    # Извлекаем ID из имён
+    # cluster_images = get_images(nmids)
     cluster_df = desc[desc.index.isin(nmids)]
 
     st.header(f"Изображения для кластера '{selected_cluster}'")
-    rows = len(cluster_images) // COLUMNS + len(cluster_images) % COLUMNS
 
-    for i, (nmid, image) in enumerate(cluster_images.items()):
+    # for i, (nmid, image) in enumerate(cluster_images.items()):
+    for i, nmid in enumerate(nmids):
         if i % COLUMNS == 0:
             cols = st.columns(COLUMNS)
+
+        image = get_images([nmid], basket_json)[nmid]
 
         with cols[i % COLUMNS]:
 
