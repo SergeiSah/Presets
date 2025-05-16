@@ -1,6 +1,7 @@
 import requests
 from io import BytesIO
 from PIL import Image
+from concurrent.futures import ThreadPoolExecutor
 
 
 def get_baskets_json(url: str = 'http://basket-10c.dp.wb.ru:8080/shardes_v3',
@@ -50,9 +51,23 @@ def create_basket_path(item_id: int,
     raise ValueError('Unexpected nm.')
 
 
+def download_image(url: str) -> Image:
+    """
+    Загружает картинку по URL.
+    :param url: URL картинки.
+    :return: PIL.Image
+    """
+    response = requests.get(url, timeout=10.)
+    if response.status_code != 200:
+        raise ValueError(f'Request failed with status code: {response.status_code}.')
+
+    return Image.open(BytesIO(response.content))
+
+
 def get_images(nmids: list, basket_json: dict = None) -> dict:
     """
     Загружает изображения по списку nmids.
+    :param basket_json: инфо о состоянии бакетов.
     :param nmids: список артикулов.
     :return: словарь nmids: images
     """
@@ -63,16 +78,10 @@ def get_images(nmids: list, basket_json: dict = None) -> dict:
 
     nmid_paths = {nm: create_basket_path(nm, basket_json=basket_json) for nm in nmids}
 
-    for nmid, path in nmid_paths.items():
-        try:
-            response = requests.get(path, timeout=10.)
+    with ThreadPoolExecutor() as executor:
+        futures = {nmid: executor.submit(download_image, path) for nmid, path in nmid_paths.items()}
 
-            if response.status_code != 200:
-                raise ValueError(f'Request failed with status code: {response.status_code}.')
-
-            images[nmid] = Image.open(BytesIO(response.content))
-        except Exception as e:
-            print(e)
-            images[nmid] = None
+        for nmid, future in futures.items():
+            images[nmid] = future.result()
 
     return images
